@@ -149,7 +149,12 @@ export function AddItemModal({ onClose, onAdded }: Props) {
         .select()
         .single();
 
-      if (insertError) throw new Error(`Database error: ${insertError.message}`);
+      if (insertError) {
+        if (insertError.message.includes("schema cache") || insertError.message.includes("does not exist") || insertError.code === "42P01") {
+          throw new Error("The wardrobe table hasn't been created yet. Go to Wardrobe → follow the setup instructions first.");
+        }
+        throw new Error(`Database error: ${insertError.message}`);
+      }
 
       onAdded(data as WardrobeItem);
       onClose();

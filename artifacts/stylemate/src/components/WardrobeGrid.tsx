@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { supabase, type WardrobeItem } from "@/lib/supabase";
 import { ClothingCard } from "./ClothingCard";
 import { AddItemModal } from "./AddItemModal";
+import { DatabaseSetup } from "./DatabaseSetup";
 
 const CATEGORIES = ["All", "shirt", "tshirt", "pants", "trousers", "jacket", "shoes", "shorts"];
 
@@ -11,6 +12,7 @@ export function WardrobeGrid() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
     loadWardrobe();
@@ -18,8 +20,19 @@ export function WardrobeGrid() {
 
   async function loadWardrobe() {
     setLoading(true);
-    const { data } = await supabase.from("wardrobe").select("*").order("created_at", { ascending: false });
-    setItems((data as WardrobeItem[]) || []);
+    const { data, error } = await supabase
+      .from("wardrobe")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      // Table doesn't exist yet
+      if (error.message.includes("schema cache") || error.message.includes("does not exist") || error.code === "42P01") {
+        setNeedsSetup(true);
+      }
+    } else {
+      setItems((data as WardrobeItem[]) || []);
+    }
     setLoading(false);
   }
 
@@ -31,10 +44,17 @@ export function WardrobeGrid() {
     setItems((prev) => [item, ...prev]);
   }
 
+  function handleSetupDone() {
+    setNeedsSetup(false);
+    loadWardrobe();
+  }
+
   const filtered = filter === "All" ? items : items.filter((i) => i.category === filter);
 
   return (
     <div>
+      {needsSetup && <DatabaseSetup onDone={handleSetupDone} />}
+
       {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap mb-6">
         {CATEGORIES.map((cat) => (
