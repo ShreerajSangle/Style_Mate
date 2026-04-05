@@ -1,7 +1,7 @@
 import type { WardrobeItem } from "./supabase";
 import type { WeatherData } from "./weather";
 
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string;
+const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string) || "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";
 
 const SYSTEM_PROMPT = `You are StyleMate, an expert personal fashion stylist with 20 years of experience dressing clients in Dublin, Ireland. You have deep knowledge of:
 
