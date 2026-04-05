@@ -53,7 +53,7 @@ async function identifyClothing(dataUrl: string): Promise<{ name: string; catego
       "X-Title": "StyleMate",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-3.5-sonnet",
+      model: "anthropic/claude-3.7-sonnet",
       messages: [
         {
           role: "user",
