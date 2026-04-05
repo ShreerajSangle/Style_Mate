@@ -53,7 +53,8 @@ async function identifyClothing(dataUrl: string): Promise<{ name: string; catego
       "X-Title": "StyleMate",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-3.7-sonnet",
+      model: "openai/gpt-4o-mini",
+      max_tokens: 200,
       messages: [
         {
           role: "user",
