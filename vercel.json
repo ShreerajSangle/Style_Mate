@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm --filter @workspace/api-server run build",
+  "outputDirectory": "artifacts/api-server/dist",
+  "installCommand": "pnpm install",
+  "builds": [
+    {
+      "src": "artifacts/api-server/dist/index.mjs",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["artifacts/api-server/dist/**"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "artifacts/api-server/dist/index.mjs"
+    }
+  ],
+  "env": {
+    "VERCEL": "1"
+  }
+}
