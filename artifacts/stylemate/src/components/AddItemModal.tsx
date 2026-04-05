@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X, Upload, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, Sparkles } from "lucide-react";
 import { supabase, type WardrobeItem } from "@/lib/supabase";
 
 type Props = {
@@ -8,44 +8,91 @@ type Props = {
 };
 
 const CATEGORIES = ["shirt", "tshirt", "pants", "trousers", "jacket", "shoes", "shorts"];
-const OCCASIONS = ["Casual", "Date", "Gym", "Beach", "Work", "Party"];
-const WEATHER_TAGS = ["Sunny", "Cloudy", "Cold", "Rainy"];
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string;
+
+async function identifyClothing(file: File): Promise<{ name: string; category: string }> {
+  const base64 = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.readAsDataURL(file);
+  });
+
+  const mimeType = file.type || "image/jpeg";
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://stylemate.app",
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-3.5-sonnet",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${base64}` },
+            },
+            {
+              type: "text",
+              text: `Look at this clothing item. Respond ONLY with a JSON object in this exact format, no extra text:
+{"name": "descriptive name including colour e.g. Navy Blue Linen Shirt", "category": "one of: shirt|tshirt|pants|trousers|jacket|shoes|shorts"}`,
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) throw new Error("AI identification failed");
+
+  const data = await response.json();
+  const raw = (data.choices[0].message.content as string).replace(/```json|```/g, "").trim();
+  return JSON.parse(raw) as { name: string; category: string };
+}
 
 export function AddItemModal({ onClose, onAdded }: Props) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  const [color, setColor] = useState("");
-  const [colorHex, setColorHex] = useState("#888888");
-  const [occasions, setOccasions] = useState<string[]>([]);
-  const [weatherTags, setWeatherTags] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [identifying, setIdentifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function toggleTag(arr: string[], setArr: (v: string[]) => void, tag: string) {
-    setArr(arr.includes(tag) ? arr.filter((t) => t !== tag) : [...arr, tag]);
-  }
-
-  function handleFile(f: File) {
+  async function handleFile(f: File) {
     setFile(f);
-    const url = URL.createObjectURL(f);
-    setPreview(url);
+    setPreview(URL.createObjectURL(f));
+    setIdentifying(true);
+    setError(null);
+    try {
+      const result = await identifyClothing(f);
+      setName(result.name);
+      if (CATEGORIES.includes(result.category)) {
+        setCategory(result.category);
+      }
+    } catch {
+      // silent — user can fill in manually
+    } finally {
+      setIdentifying(false);
+    }
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragging(false);
     const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith("image/")) handleFile(f);
+    if (f && f.type.startsWith("image/")) void handleFile(f);
   }
 
   async function handleSave() {
     if (!name || !category || !file) {
-      setError("Name, category, and photo are required.");
+      setError("Photo, name, and category are required.");
       return;
     }
 
@@ -65,19 +112,12 @@ export function AddItemModal({ onClose, onAdded }: Props) {
         .from("wardrobe-images")
         .getPublicUrl(fileName);
 
-      const imageUrl = urlData.publicUrl;
-
       const { data, error: insertError } = await supabase
         .from("wardrobe")
         .insert({
           name,
           category,
-          color: color || null,
-          color_hex: colorHex || null,
-          occasion_tags: occasions.length ? occasions.map((o) => o.toLowerCase()) : null,
-          weather_tags: weatherTags.length ? weatherTags.map((w) => w.toLowerCase()) : null,
-          image_url: imageUrl,
-          notes: notes || null,
+          image_url: urlData.publicUrl,
         })
         .select()
         .single();
@@ -95,9 +135,9 @@ export function AddItemModal({ onClose, onAdded }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="modal-panel w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="modal-panel w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-serif text-white">Add Clothing Item</h2>
+          <h2 className="text-xl font-serif text-white">Add to Wardrobe</h2>
           <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
             <X size={20} />
           </button>
@@ -105,18 +145,33 @@ export function AddItemModal({ onClose, onAdded }: Props) {
 
         {/* Photo Upload */}
         <div
-          className={`upload-zone mb-5 ${dragging ? "border-gold bg-gold/5" : ""}`}
-          onClick={() => fileRef.current?.click()}
+          className={`upload-zone mb-5 ${dragging ? "dragging" : ""}`}
+          onClick={() => !identifying && fileRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
+          style={{ cursor: identifying ? "default" : "pointer" }}
         >
           {preview ? (
-            <img src={preview} alt="Preview" className="max-h-48 rounded object-contain mx-auto" />
+            <div className="relative">
+              <img src={preview} alt="Preview" className="max-h-52 rounded object-contain mx-auto" />
+              {identifying && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded gap-2">
+                  <Loader2 size={24} className="animate-spin text-gold" />
+                  <span className="text-sm text-gold font-medium">Identifying clothing...</span>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 text-white/40">
-              <Upload size={28} />
-              <span className="text-sm">Drop a photo here or click to browse</span>
+            <div className="flex flex-col items-center gap-3 text-white/40 py-4">
+              <Upload size={32} />
+              <div className="text-center">
+                <p className="text-sm font-medium text-white/60">Drop a photo or click to browse</p>
+                <p className="text-xs mt-1 flex items-center justify-center gap-1">
+                  <Sparkles size={11} className="text-gold/60" />
+                  <span className="text-gold/60">AI will identify the item automatically</span>
+                </p>
+              </div>
             </div>
           )}
           <input
@@ -124,99 +179,42 @@ export function AddItemModal({ onClose, onAdded }: Props) {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); }}
           />
         </div>
 
         {/* Name */}
         <div className="mb-4">
-          <label className="form-label">Name *</label>
+          <label className="form-label">
+            Name *
+            {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal">detecting...</span>}
+          </label>
           <input
             className="form-input"
             placeholder="e.g. Navy Linen Shirt"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={identifying}
           />
         </div>
 
         {/* Category */}
-        <div className="mb-4">
-          <label className="form-label">Category *</label>
+        <div className="mb-6">
+          <label className="form-label">
+            Category *
+            {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal">detecting...</span>}
+          </label>
           <select
             className="form-input"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
+            disabled={identifying}
           >
             <option value="">Select category...</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
             ))}
           </select>
-        </div>
-
-        {/* Color */}
-        <div className="mb-4">
-          <label className="form-label">Color</label>
-          <div className="flex gap-3">
-            <input
-              className="form-input flex-1"
-              placeholder="e.g. Navy Blue"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-            />
-            <input
-              type="color"
-              value={colorHex}
-              onChange={(e) => setColorHex(e.target.value)}
-              className="w-12 h-10 rounded border border-white/10 bg-transparent cursor-pointer"
-            />
-          </div>
-        </div>
-
-        {/* Occasion Tags */}
-        <div className="mb-4">
-          <label className="form-label">Occasion Tags</label>
-          <div className="flex flex-wrap gap-2">
-            {OCCASIONS.map((occ) => (
-              <button
-                key={occ}
-                type="button"
-                onClick={() => toggleTag(occasions, setOccasions, occ)}
-                className={`tag-toggle ${occasions.includes(occ) ? "selected" : ""}`}
-              >
-                {occ}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Weather Tags */}
-        <div className="mb-4">
-          <label className="form-label">Weather Tags</label>
-          <div className="flex flex-wrap gap-2">
-            {WEATHER_TAGS.map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => toggleTag(weatherTags, setWeatherTags, w)}
-                className={`tag-toggle ${weatherTags.includes(w) ? "selected" : ""}`}
-              >
-                {w}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div className="mb-6">
-          <label className="form-label">Notes</label>
-          <textarea
-            className="form-input resize-none"
-            rows={2}
-            placeholder="Any notes about this item..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
         </div>
 
         {error && (
@@ -227,7 +225,7 @@ export function AddItemModal({ onClose, onAdded }: Props) {
           <button onClick={onClose} className="btn-secondary flex-1">
             Cancel
           </button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
+          <button onClick={handleSave} disabled={saving || identifying} className="btn-primary flex-1">
             {saving ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 size={16} className="animate-spin" /> Saving...

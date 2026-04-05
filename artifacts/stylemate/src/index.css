@@ -336,6 +336,11 @@ body {
   background: rgba(201, 168, 76, 0.03);
 }
 
+.upload-zone.dragging {
+  border-color: #C9A84C;
+  background: rgba(201, 168, 76, 0.05);
+}
+
 /* ===================== */
 /* FORM ELEMENTS */
 /* ===================== */
