@@ -116,7 +116,7 @@ Please suggest 3 distinctly different outfit combinations that look great togeth
       "X-Title": "StyleMate",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-3.5-sonnet",
+      model: "anthropic/claude-3.7-sonnet",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMessage },
