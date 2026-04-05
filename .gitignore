@@ -44,14 +44,6 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# env and logs
-.env
-*.log
-.env.*
-!.env.example
-node_modules
-/artifacts/**/node_modules
-
-# Local state
-.local/
+# Replit
 .cache/
+.local/
