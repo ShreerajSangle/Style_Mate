@@ -9,15 +9,22 @@ function Nav() {
 
   return (
     <header className="app-header">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="logo-mark">SM</div>
-          <span className="text-xl font-serif text-white tracking-wide">StyleMate</span>
-        </Link>
-
-        <div className="flex items-center gap-6">
+      <div className="max-w-6xl mx-auto w-full grid grid-cols-3 items-center">
+        {/* Left: Weather */}
+        <div className="flex items-center">
           <WeatherWidget />
+        </div>
 
+        {/* Centre: Logo */}
+        <div className="flex justify-center">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="logo-mark">SM</div>
+            <span className="text-xl font-serif text-white tracking-wide">StyleMate</span>
+          </Link>
+        </div>
+
+        {/* Right: Nav */}
+        <div className="flex justify-end">
           <nav className="flex items-center gap-1">
             <Link
               href="/"
