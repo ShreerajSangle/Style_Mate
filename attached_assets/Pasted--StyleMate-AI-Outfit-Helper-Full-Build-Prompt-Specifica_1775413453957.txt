@@ -1,0 +1,311 @@
+# 👗 StyleMate — AI Outfit Helper
+### Full Build Prompt & Specification
+
+---
+
+## 🎯 WHAT YOU ARE BUILDING
+
+A **personal AI outfit picker web app** called **StyleMate**.
+
+The user answers a few simple questions via a clean UI (NOT a chatbot — just dropdowns/buttons/selectors), and the app uses AI to suggest 3 complete outfit combinations from their wardrobe stored in Supabase.
+
+The interface is **form-style / card-based** — simple, fast, beautiful. The user picks occasion + sees weather auto-loaded, hits a button, and gets 3 visual outfit options using their actual clothing photos.
+
+---
+
+## 🔑 CREDENTIALS (use these directly in the app)
+
+```
+SUPABASE URL:      https://ftuwtquthxvylfuqahgs.supabase.co
+SUPABASE KEY:      sb_publishable_qe6Auf6KzCAX3dDlwm41iA_amnfNy7u
+
+OPENROUTER KEY:    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
+```
+
+### .env file:
+```
+VITE_SUPABASE_URL=https://ftuwtquthxvylfuqahgs.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_qe6Auf6KzCAX3dDlwm41iA_amnfNy7u
+VITE_OPENROUTER_API_KEY=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
+```
+
+---
+
+## 🛠️ TECH STACK
+
+| Layer | Technology |
+|---|---|
+| Frontend | React + Vite |
+| Styling | Tailwind CSS |
+| AI Model | OpenRouter API — model: `anthropic/claude-3.5-sonnet` |
+| Database | Supabase (PostgreSQL + Storage for images) |
+| Weather | Open-Meteo API (free, no key — Dublin lat=53.3498, lon=-6.2603) |
+
+---
+
+## 🗄️ SUPABASE DATABASE SCHEMA
+
+### Table: `wardrobe`
+
+```sql
+create table wardrobe (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default now(),
+  name text not null,
+  category text not null,   -- 'shirt' | 'tshirt' | 'pants' | 'trousers' | 'jacket' | 'shoes' | 'shorts'
+  color text,               -- e.g. "navy blue"
+  color_hex text,           -- e.g. "#1a2e4a"
+  occasion_tags text[],     -- e.g. ['casual', 'date', 'beach', 'gym']
+  weather_tags text[],      -- e.g. ['sunny', 'cold', 'rainy']
+  image_url text not null,  -- Supabase Storage public URL
+  notes text
+);
+```
+
+### Table: `user_profile`
+
+```sql
+create table user_profile (
+  id uuid default gen_random_uuid() primary key,
+  skin_tone_hex text,       -- e.g. "#c68642"
+  skin_tone_label text      -- e.g. "Medium Warm"
+);
+```
+
+### Supabase Storage Bucket: `wardrobe-images`
+- Create a **public** bucket called `wardrobe-images`
+- Each clothing photo is uploaded here; the public URL is saved in `wardrobe.image_url`
+
+---
+
+## 🌦️ WEATHER INTEGRATION (Auto-loaded, Dublin)
+
+```javascript
+async function getDublinWeather() {
+  const res = await fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=53.3498&longitude=-6.2603&current=temperature_2m,weather_code&timezone=Europe/Dublin"
+  );
+  const data = await res.json();
+  const code = data.current.weather_code;
+  const temp = data.current.temperature_2m;
+  const label = getWeatherLabel(code);
+  return { temp, label };
+}
+
+function getWeatherLabel(code) {
+  if (code === 0) return "Sunny";
+  if ([1, 2, 3].includes(code)) return "Partly Cloudy";
+  if ([45, 48].includes(code)) return "Foggy";
+  if ([51, 53, 55].includes(code)) return "Drizzle";
+  if ([61, 63, 65].includes(code)) return "Rainy";
+  if ([80, 81, 82].includes(code)) return "Showers";
+  if ([95, 96, 99].includes(code)) return "Thunderstorm";
+  return "Overcast";
+}
+```
+
+---
+
+## 🖥️ UI — TWO SCREENS ONLY
+
+### SCREEN 1 — Outfit Picker (Home)
+
+**Layout: Single page, top-to-bottom**
+
+```
+┌──────────────────────────────────────────────────┐
+│  StyleMate                          🌤 14°C Dublin │
+├──────────────────────────────────────────────────┤
+│                                                    │
+│   What's the occasion?                            │
+│   [ Date Night ]  [ Casual Hangout ]  [ Gym ]    │
+│   [ Beach Day  ]  [ Just a Stroll  ]  [ Work ]   │
+│   [ Party      ]  [ Other          ]             │
+│                                                    │
+│   ──────────────────────────────────────────────  │
+│                                                    │
+│            [ ✨ Suggest My Outfit ]               │
+│                                                    │
+├──────────────────────────────────────────────────┤
+│  OPTION A         OPTION B         OPTION C       │
+│  Relaxed Cool     Smart Casual     Bold & Fresh   │
+│  ┌───────────┐   ┌───────────┐   ┌───────────┐  │
+│  │ shirt img │   │ shirt img │   │tshirt img │  │
+│  │ pants img │   │ pants img │   │shorts img │  │
+│  │ shoes img │   │ shoes img │   │ shoes img │  │
+│  └───────────┘   └───────────┘   └───────────┘  │
+│  "Linen shirt +  "White polo +   "Graphic tee   │
+│   chinos work    slim trousers    + cargo..."    │
+│   perfectly..."  feel smart..."                  │
+└──────────────────────────────────────────────────┘
+```
+
+- Occasion is selected by **clicking a button/chip** (one at a time, highlighted when selected)
+- Weather is shown automatically — user does NOT input it
+- One big **"Suggest My Outfit"** button triggers the AI call
+- The 3 outfit cards animate in below
+
+---
+
+### SCREEN 2 — Wardrobe Manager
+
+Accessible via a nav icon (e.g. 👕 or a wardrobe icon in the top nav).
+
+- **Grid view** of all clothing items with their photos
+- **Filter tabs**: All | Shirts | T-Shirts | Pants | Jackets | Shoes | etc.
+- **Add Item** button → modal with:
+  - Photo upload (→ uploads to `wardrobe-images` bucket in Supabase)
+  - Name (text input)
+  - Category (dropdown)
+  - Color (text + hex colour picker)
+  - Occasion tags (multi-select: Casual, Date, Gym, Beach, Work, Party)
+  - Weather tags (multi-select: Sunny, Cloudy, Cold, Rainy)
+  - Save → inserts row into `wardrobe` table with the image URL
+- **Delete Item** → trash icon on each card, with confirmation dialog, deletes from DB + storage
+
+---
+
+## 🤖 AI SYSTEM PROMPT (OpenRouter)
+
+Use this exact system prompt on every API call:
+
+```
+You are StyleMate, a personal fashion stylist AI for a user in Dublin, Ireland.
+
+Your only job is to pick 3 outfit combinations from the user's wardrobe based on the occasion and current weather provided.
+
+RULES:
+- Every outfit MUST include: one top (shirt/tshirt/jacket) + one bottom (pants/trousers/shorts) + shoes
+- Add a jacket if temp is below 15°C or it is rainy/cloudy
+- Match the energy of the occasion — don't suggest formal trousers for gym
+- Consider colour harmony with the user's skin tone
+
+ALWAYS respond in this exact JSON format (no extra text, just the JSON):
+
+{
+  "outfits": [
+    {
+      "label": "Option A",
+      "vibe": "Short vibe label e.g. Relaxed Cool",
+      "description": "One sentence why this works for today.",
+      "items": [
+        { "id": "uuid", "name": "item name", "category": "shirt", "image_url": "https://..." },
+        { "id": "uuid", "name": "item name", "category": "pants", "image_url": "https://..." },
+        { "id": "uuid", "name": "item name", "category": "shoes", "image_url": "https://..." }
+      ]
+    },
+    {
+      "label": "Option B",
+      "vibe": "...",
+      "description": "...",
+      "items": [...]
+    },
+    {
+      "label": "Option C",
+      "vibe": "...",
+      "description": "...",
+      "items": [...]
+    }
+  ]
+}
+
+Only use items from the wardrobe data provided. Never invent items.
+```
+
+---
+
+## 🔌 OPENROUTER API CALL
+
+```javascript
+async function getOutfitSuggestions(occasion, weather, wardrobe, skinTone) {
+  const userMessage = `
+Occasion: ${occasion}
+Weather: ${weather.label}, ${weather.temp}°C in Dublin
+User skin tone: ${skinTone}
+
+Wardrobe:
+${JSON.stringify(wardrobe, null, 2)}
+
+Please suggest 3 outfits.
+  `;
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer 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`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://stylemate.app",
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-3.5-sonnet",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage }
+      ]
+    })
+  });
+
+  const data = await response.json();
+  const raw = data.choices[0].message.content;
+
+  // Strip markdown fences if present
+  const clean = raw.replace(/```json|```/g, "").trim();
+  return JSON.parse(clean);
+}
+```
+
+---
+
+## 📁 FOLDER STRUCTURE
+
+```
+stylemate/
+├── src/
+│   ├── components/
+│   │   ├── OccasionPicker.jsx       // button chip selector
+│   │   ├── WeatherWidget.jsx        // auto-loaded Dublin weather pill
+│   │   ├── OutfitCard.jsx           // single outfit option card
+│   │   ├── OutfitGrid.jsx           // 3 cards side by side
+│   │   ├── WardrobeGrid.jsx         // photo grid with filter tabs
+│   │   ├── ClothingCard.jsx         // single item card with delete
+│   │   └── AddItemModal.jsx         // upload + form modal
+│   ├── lib/
+│   │   ├── supabase.js              // Supabase client
+│   │   ├── openrouter.js            // AI API call
+│   │   └── weather.js               // Open-Meteo fetch
+│   ├── App.jsx                      // routing between Home + Wardrobe
+│   └── main.jsx
+├── .env                             // credentials above
+└── package.json
+```
+
+---
+
+## 🎨 DESIGN DIRECTION
+
+- **Theme**: Dark luxury fashion aesthetic — deep charcoal `#111111` background
+- **Accent**: Warm gold `#C9A84C`
+- **Font**: `Playfair Display` for headings + `DM Sans` for body
+- **Clothing images**: Polaroid-style cards with soft drop shadows
+- **Outfit cards**: Fade + slide up animation when they appear
+- **Occasion buttons**: Pill-shaped chips, gold border when selected
+- **Weather widget**: Small pill top-right — weather icon + temp + condition
+- **Add/delete in Wardrobe**: Clean modal, drag-and-drop photo upload feel
+
+---
+
+## 🚀 BUILD ORDER
+
+1. Set up Supabase tables + storage bucket (SQL above)
+2. Scaffold React app: `npm create vite@latest stylemate -- --template react`
+3. Install: `npm install @supabase/supabase-js tailwindcss`
+4. Build **Wardrobe Manager** first — upload real clothes to test with
+5. Build **Weather widget** — test Open-Meteo fetch
+6. Build **Occasion Picker** (chip buttons)
+7. Wire up **OpenRouter** — test AI response + JSON parsing
+8. Build **Outfit Cards** — 3 columns, stacked clothing photos
+9. Polish animations + mobile layout
+
+---
+
+*StyleMate — Your wardrobe. Dublin weather. AI-picked outfits.*

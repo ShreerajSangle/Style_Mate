@@ -1,27 +1,50 @@
-# Workspace
+# StyleMate — AI Outfit Helper
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+A personal AI outfit picker web app for Dublin. The user selects an occasion, Dublin weather is auto-loaded, and the AI (Claude 3.5 Sonnet via OpenRouter) suggests 3 complete outfit combinations from the user's wardrobe stored in Supabase.
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Frontend**: React + Vite (artifact: `stylemate`, preview at `/`)
+- **Styling**: Tailwind CSS + custom dark luxury CSS (Playfair Display + DM Sans fonts)
+- **AI**: OpenRouter API — model: `anthropic/claude-3.5-sonnet`
+- **Database**: Supabase (PostgreSQL + Storage for clothing images)
+- **Weather**: Open-Meteo API (free, no key — Dublin lat=53.3498, lon=-6.2603)
+- **Monorepo**: pnpm workspaces
 
-## Key Commands
+## Key Files
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `artifacts/stylemate/src/App.tsx` — main app router + nav
+- `artifacts/stylemate/src/pages/Home.tsx` — outfit picker screen
+- `artifacts/stylemate/src/pages/Wardrobe.tsx` — wardrobe manager screen
+- `artifacts/stylemate/src/lib/supabase.ts` — Supabase client + types
+- `artifacts/stylemate/src/lib/openrouter.ts` — AI API call + system prompt
+- `artifacts/stylemate/src/lib/weather.ts` — Open-Meteo weather fetch
+- `artifacts/stylemate/src/components/` — all UI components
+- `artifacts/stylemate/src/index.css` — dark luxury design system
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## Environment Variables
+
+- `VITE_SUPABASE_URL` — Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` — Supabase anon/publishable key
+- `VITE_OPENROUTER_API_KEY` — OpenRouter API key
+
+## Supabase Schema
+
+- `wardrobe` table: id, name, category, color, color_hex, occasion_tags[], weather_tags[], image_url, notes
+- `user_profile` table: id, skin_tone_hex, skin_tone_label
+- Storage bucket: `wardrobe-images` (public)
+
+## Features
+
+- **Screen 1 — Outfit Picker**: Occasion chip selector, live Dublin weather widget, AI suggests 3 outfit options with animated cards
+- **Screen 2 — Wardrobe Manager**: Photo grid with category filters, add item modal (photo upload → Supabase storage), delete with confirmation
+
+## Commands
+
+- `pnpm --filter @workspace/stylemate run dev` — run dev server
+- `pnpm --filter @workspace/stylemate run build` — production build
+
+## Node.js version: 24
+## Package manager: pnpm

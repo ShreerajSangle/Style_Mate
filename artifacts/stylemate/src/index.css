@@ -1,0 +1,436 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-gold: #C9A84C;
+  --color-charcoal-700: #1a1a1a;
+  --color-charcoal-800: #141414;
+  --color-charcoal-900: #0e0e0e;
+
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: 0 0% 7%;
+  --foreground: 0 0% 95%;
+  --border: 0 0% 15%;
+  --card: 0 0% 10%;
+  --card-foreground: 0 0% 95%;
+  --radius: 0.625rem;
+
+  --gold: #C9A84C;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #111111;
+  color: #f2f2f2;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===================== */
+/* GLOBAL UTILITY CLASSES */
+/* ===================== */
+
+.text-gold {
+  color: #C9A84C;
+}
+
+.bg-gold {
+  background-color: #C9A84C;
+}
+
+.border-gold {
+  border-color: #C9A84C;
+}
+
+/* ===================== */
+/* HEADER */
+/* ===================== */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: rgba(17, 17, 17, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0 1rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #C9A84C, #a07830);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: 0.05em;
+}
+
+/* ===================== */
+/* NAV */
+/* ===================== */
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link.active {
+  color: #C9A84C;
+  background-color: rgba(201, 168, 76, 0.1);
+}
+
+/* ===================== */
+/* WEATHER WIDGET */
+/* ===================== */
+
+.weather-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  font-size: 13px;
+  color: #C9A84C;
+}
+
+/* ===================== */
+/* OCCASION CHIPS */
+/* ===================== */
+
+.occasion-chip {
+  padding: 8px 20px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.occasion-chip:hover {
+  border-color: rgba(201, 168, 76, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(201, 168, 76, 0.05);
+}
+
+.occasion-chip.selected {
+  border-color: #C9A84C;
+  background: rgba(201, 168, 76, 0.12);
+  color: #C9A84C;
+  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.2);
+}
+
+/* ===================== */
+/* SUGGEST BUTTON */
+/* ===================== */
+
+.suggest-btn {
+  padding: 14px 40px;
+  background: linear-gradient(135deg, #C9A84C, #a07830);
+  color: #111;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 20px rgba(201, 168, 76, 0.25);
+}
+
+.suggest-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(201, 168, 76, 0.35);
+}
+
+.suggest-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===================== */
+/* OUTFIT CARDS */
+/* ===================== */
+
+.outfit-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+.outfit-card:hover {
+  border-color: rgba(201, 168, 76, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.polaroid-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.polaroid-card:hover {
+  transform: scale(1.02);
+}
+
+/* ===================== */
+/* CLOTHING CARDS (WARDROBE) */
+/* ===================== */
+
+.clothing-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.clothing-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ===================== */
+/* FILTER TABS */
+/* ===================== */
+
+.filter-tab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.filter-tab:hover {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.filter-tab.active {
+  background: rgba(201, 168, 76, 0.1);
+  border-color: rgba(201, 168, 76, 0.35);
+  color: #C9A84C;
+}
+
+/* ===================== */
+/* TAG PILLS */
+/* ===================== */
+
+.tag-pill {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tag-toggle {
+  padding: 5px 14px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.tag-toggle:hover {
+  border-color: rgba(201, 168, 76, 0.4);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tag-toggle.selected {
+  border-color: #C9A84C;
+  background: rgba(201, 168, 76, 0.1);
+  color: #C9A84C;
+}
+
+/* ===================== */
+/* MODAL */
+/* ===================== */
+
+.modal-panel {
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 28px;
+}
+
+.upload-zone {
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-zone:hover {
+  border-color: rgba(201, 168, 76, 0.5);
+  background: rgba(201, 168, 76, 0.03);
+}
+
+/* ===================== */
+/* FORM ELEMENTS */
+/* ===================== */
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: #f2f2f2;
+  font-family: 'DM Sans', sans-serif;
+  transition: border-color 0.15s ease;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: rgba(201, 168, 76, 0.5);
+}
+
+.form-input option {
+  background: #181818;
+  color: #f2f2f2;
+}
+
+/* ===================== */
+/* BUTTONS */
+/* ===================== */
+
+.btn-primary {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #C9A84C, #a07830);
+  color: #111;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'DM Sans', sans-serif;
+  text-align: center;
+}
+
+.btn-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ===================== */
+/* FONT HELPERS */
+/* ===================== */
+
+.font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-sans {
+  font-family: 'DM Sans', sans-serif;
+}
