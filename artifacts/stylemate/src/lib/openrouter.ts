@@ -83,25 +83,26 @@ export async function getOutfitSuggestions(
   wardrobe: WardrobeItem[],
   skinTone: string
 ): Promise<OutfitSuggestions> {
+  // Build a lightweight wardrobe list for the AI — no base64 images
+  const wardrobeForAI = wardrobe.map((item) => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    color: item.color ?? null,
+    occasion_tags: item.occasion_tags ?? [],
+    weather_tags: item.weather_tags ?? [],
+  }));
+
+  // Keep a quick lookup so we can hydrate image_url after the AI responds
+  const imageById = Object.fromEntries(wardrobe.map((i) => [i.id, i.image_url]));
+
   const userMessage = `
 Occasion: ${occasion}
 Weather: ${weather.label}, ${weather.temp}°C in Dublin today
 User skin tone: ${skinTone}
 
 Available wardrobe items (use ONLY these):
-${JSON.stringify(
-  wardrobe.map((item) => ({
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    color: item.color,
-    image_url: item.image_url,
-    occasion_tags: item.occasion_tags,
-    weather_tags: item.weather_tags,
-  })),
-  null,
-  2
-)}
+${JSON.stringify(wardrobeForAI, null, 2)}
 
 Please suggest 3 distinctly different outfit combinations that look great together.
   `;
@@ -125,11 +126,21 @@ Please suggest 3 distinctly different outfit combinations that look great togeth
 
   if (!response.ok) {
     const err = await response.text();
+    console.error("OpenRouter response:", response.status, err);
     throw new Error(`OpenRouter error ${response.status}: ${err}`);
   }
 
   const data = await response.json();
   const raw = data.choices[0].message.content as string;
   const clean = raw.replace(/```json|```/g, "").trim();
-  return JSON.parse(clean) as OutfitSuggestions;
+  const result = JSON.parse(clean) as OutfitSuggestions;
+
+  // Hydrate image_url from the local wardrobe lookup (AI payload had no images)
+  for (const outfit of result.outfits) {
+    for (const item of outfit.items) {
+      item.image_url = imageById[item.id] ?? item.image_url ?? "";
+    }
+  }
+
+  return result;
 }
