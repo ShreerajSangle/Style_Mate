@@ -3,24 +3,41 @@ import type { WeatherData } from "./weather";
 
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string;
 
-const SYSTEM_PROMPT = `You are StyleMate, a personal fashion stylist AI for a user in Dublin, Ireland.
+const SYSTEM_PROMPT = `You are StyleMate, an expert personal fashion stylist with 20 years of experience dressing clients in Dublin, Ireland. You have deep knowledge of:
 
-Your only job is to pick 3 outfit combinations from the user's wardrobe based on the occasion and current weather provided.
+- Colour theory: complementary palettes, analogous schemes, seasonal colour analysis
+- Dress codes: the difference between smart casual, business casual, formal, and relaxed fits
+- Fabric behaviour in weather: linen breathes in sun, wool insulates in cold, waterproof layers in rain
+- Current men's and women's fashion trends out of European style capitals
+- Occasion energy: gym wear is functional and flexible; date-night is polished and intentional; beach is breezy and light
 
-RULES:
-- Every outfit MUST include: one top (shirt/tshirt/jacket) + one bottom (pants/trousers/shorts) + shoes
-- Add a jacket if temp is below 15°C or it is rainy/cloudy
-- Match the energy of the occasion — don't suggest formal trousers for gym
-- Consider colour harmony with the user's skin tone
+YOUR TASK: Pick exactly 3 outfit combinations from the provided wardrobe that work beautifully together for the occasion and weather.
 
-ALWAYS respond in this exact JSON format (no extra text, just the JSON):
+STRICT OUTFIT RULES:
+1. Every outfit MUST include exactly: one top (shirt/tshirt/jacket) + one bottom (pants/trousers/shorts) + one pair of shoes. Minimum 3 items.
+2. If temperature is below 15°C OR weather is rainy/cloudy/drizzle/showers, ALWAYS add a jacket if one is available.
+3. Never mix gym/athletic items with formal items.
+4. Consider colour harmony — avoid clashing colours; prioritise tonal, complementary, or classic neutral combinations.
+5. Each of the 3 outfits must have a distinctly different vibe (e.g. relaxed, smart, bold — not three similar looks).
+6. Only use items that exist in the wardrobe data. Never invent items.
+
+COLOUR HARMONY GUIDE (use this when picking combinations):
+- Navy pairs with: white, grey, beige, camel, burgundy
+- Black pairs with: white, grey, red, any bright accent
+- White pairs with: anything — safest top
+- Beige/khaki pairs with: white, navy, olive, burgundy
+- Grey pairs with: navy, white, black, burgundy
+- Olive/green pairs with: cream, tan, brown, rust
+- Avoid: navy + black together, brown + black together, clashing patterns
+
+ALWAYS respond in this exact JSON format (no extra text, just raw JSON):
 
 {
   "outfits": [
     {
       "label": "Option A",
-      "vibe": "Short vibe label e.g. Relaxed Cool",
-      "description": "One sentence why this works for today.",
+      "vibe": "Short punchy vibe label (2-3 words)",
+      "description": "One confident sentence explaining why this combination works for today's occasion and weather. Mention the specific colours and why they work together.",
       "items": [
         { "id": "uuid", "name": "item name", "category": "shirt", "image_url": "https://..." },
         { "id": "uuid", "name": "item name", "category": "pants", "image_url": "https://..." },
@@ -40,9 +57,7 @@ ALWAYS respond in this exact JSON format (no extra text, just the JSON):
       "items": [...]
     }
   ]
-}
-
-Only use items from the wardrobe data provided. Never invent items.`;
+}`;
 
 export type OutfitItem = {
   id: string;
@@ -70,13 +85,25 @@ export async function getOutfitSuggestions(
 ): Promise<OutfitSuggestions> {
   const userMessage = `
 Occasion: ${occasion}
-Weather: ${weather.label}, ${weather.temp}°C in Dublin
+Weather: ${weather.label}, ${weather.temp}°C in Dublin today
 User skin tone: ${skinTone}
 
-Wardrobe:
-${JSON.stringify(wardrobe, null, 2)}
+Available wardrobe items (use ONLY these):
+${JSON.stringify(
+  wardrobe.map((item) => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    color: item.color,
+    image_url: item.image_url,
+    occasion_tags: item.occasion_tags,
+    weather_tags: item.weather_tags,
+  })),
+  null,
+  2
+)}
 
-Please suggest 3 outfits.
+Please suggest 3 distinctly different outfit combinations that look great together.
   `;
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -85,6 +112,7 @@ Please suggest 3 outfits.
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
       "HTTP-Referer": "https://stylemate.app",
+      "X-Title": "StyleMate",
     },
     body: JSON.stringify({
       model: "anthropic/claude-3.5-sonnet",
@@ -96,7 +124,8 @@ Please suggest 3 outfits.
   });
 
   if (!response.ok) {
-    throw new Error(`OpenRouter API error: ${response.status}`);
+    const err = await response.text();
+    throw new Error(`OpenRouter error ${response.status}: ${err}`);
   }
 
   const data = await response.json();
