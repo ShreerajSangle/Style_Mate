@@ -20,10 +20,6 @@ export function ClothingCard({ item, onDelete }: Props) {
 
     setDeleting(true);
     try {
-      const filePath = item.image_url.split("/wardrobe-images/")[1];
-      if (filePath) {
-        await supabase.storage.from("wardrobe-images").remove([filePath]);
-      }
       await supabase.from("wardrobe").delete().eq("id", item.id);
       onDelete(item.id);
     } catch (e) {
