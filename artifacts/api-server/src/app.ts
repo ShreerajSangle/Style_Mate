@@ -1,9 +1,14 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import { pinoHttp } from "pino-http";
+import { createRequire } from "module";
 import type { IncomingMessage, ServerResponse } from "http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+// pino-http v10 dropped the default export — use createRequire for full compatibility
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pinoHttp = (require("pino-http") as any).default ?? require("pino-http");
 
 const app: Express = express();
 
