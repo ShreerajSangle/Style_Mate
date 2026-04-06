@@ -1,47 +1,32 @@
-import { useEffect, useState } from "react";
-import { getDublinWeather, getWeatherIcon, type WeatherData } from "@/lib/weather";
+import { useWeather } from "@/lib/weatherContext";
+import { getWeatherIcon } from "@/lib/weather";
 
 export function WeatherWidget() {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getDublinWeather()
-      .then(setWeather)
-      .finally(() => setLoading(false));
-  }, []);
+  const { weather, loading, error } = useWeather();
 
   if (loading) {
     return (
       <div className="weather-pill">
-        <span className="animate-pulse">Loading...</span>
+        <span className="animate-pulse text-white/30">...</span>
       </div>
     );
   }
 
-  if (!weather) return null;
+  if (error || !weather) {
+    return (
+      <div className="weather-pill" title="Weather unavailable">
+        <span>🌡️</span>
+        <span className="text-white/30 text-xs">Unavailable</span>
+      </div>
+    );
+  }
 
   return (
     <div className="weather-pill">
       <span>{getWeatherIcon(weather.code)}</span>
       <span className="font-semibold">{Math.round(weather.temp)}°C</span>
       <span className="text-gold/70">{weather.label}</span>
-      <span className="text-gold/50 text-xs">Dublin</span>
+      <span className="text-gold/50 text-xs">{weather.city}</span>
     </div>
   );
-}
-
-export function useWeather() {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getDublinWeather()
-      .then(setWeather)
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { weather, loading, error };
 }

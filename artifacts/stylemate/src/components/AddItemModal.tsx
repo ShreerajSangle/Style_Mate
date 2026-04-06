@@ -17,6 +17,9 @@ const CATEGORIES = [
   { value: "shoes",    label: "Shoes / Trainers / Boots / Sandals" },
 ];
 
+const OCCASION_OPTIONS = ["Casual", "Work", "Formal", "Party", "Sport", "Beach", "Date"];
+const WEATHER_OPTIONS   = ["Sunny", "Rainy", "Cold", "Warm", "Windy", "Snowy"];
+
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY as string;
 
 /** Resize + compress an image file to a JPEG data-URL (≤ 900px, quality 0.75) */
@@ -29,8 +32,7 @@ function compressImage(file: File, maxPx = 900, quality = 0.75): Promise<string>
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
@@ -41,9 +43,8 @@ function compressImage(file: File, maxPx = 900, quality = 0.75): Promise<string>
   });
 }
 
-async function identifyClothing(dataUrl: string): Promise<{ name: string; category: string }> {
+async function identifyClothing(dataUrl: string): Promise<{ name: string; category: string; color: string; color_hex: string; occasion_tags: string[]; weather_tags: string[] }> {
   const base64 = dataUrl.split(",")[1];
-
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -54,67 +55,78 @@ async function identifyClothing(dataUrl: string): Promise<{ name: string; catego
     },
     body: JSON.stringify({
       model: "openai/gpt-4o-mini",
-      max_tokens: 200,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } },
-            {
-              type: "text",
-              text: `You are a professional fashion AI. Identify this clothing item precisely.
+      max_tokens: 300,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } },
+          {
+            type: "text",
+            text: `You are a professional fashion AI. Identify this clothing item precisely.
 
-CATEGORY RULES — pick the most accurate one:
-• "tshirt"   → Any pull-over top with no button placket: t-shirt, polo, sweatshirt, hoodie body, tank top, crew-neck, v-neck casual top
-• "shirt"    → Has a full-length button placket down the front AND a collar: Oxford, dress shirt, flannel, chambray, linen shirt
-• "pants"    → Casual bottoms: jeans, chinos, cargo pants, smart-casual trousers
-• "trousers" → Formal bottoms: suit trousers, dress trousers, tailored slim-cut formal wear
-• "shorts"   → Any short-leg bottom
-• "jacket"   → Outerwear worn on top: bomber, blazer, suit jacket, windbreaker, overcoat, denim jacket (NOT a hoodie worn alone)
-• "shoes"    → Any footwear: trainers, sneakers, dress shoes, boots, loafers, sandals
+CATEGORY RULES:
+• "tshirt" → pull-over top: t-shirt, polo, sweatshirt, hoodie body, tank top, crew-neck, v-neck
+• "shirt" → full-length button placket + collar: Oxford, dress shirt, flannel, linen shirt
+• "pants" → casual bottoms: jeans, chinos, cargo pants
+• "trousers" → formal bottoms: suit trousers, dress trousers
+• "shorts" → any short-leg bottom
+• "jacket" → outerwear: bomber, blazer, windbreaker, overcoat, denim jacket
+• "shoes" → any footwear: trainers, sneakers, dress shoes, boots, loafers
 
-Return ONLY a raw JSON object — no markdown, no explanation:
-{"name":"[Colour] [Descriptive Name] e.g. Pale Blue Oxford Shirt or White Graphic T-Shirt", "category":"shirt|tshirt|pants|trousers|shorts|jacket|shoes"}`,
-            },
-          ],
-        },
-      ],
+Return ONLY raw JSON — no markdown:
+{
+  "name": "[Colour] [Descriptive Name]",
+  "category": "shirt|tshirt|pants|trousers|shorts|jacket|shoes",
+  "color": "human-readable colour name e.g. Navy Blue",
+  "color_hex": "#hex code e.g. #1a2e5a",
+  "occasion_tags": ["Casual"|"Work"|"Formal"|"Party"|"Sport"|"Beach"|"Date" — pick relevant ones],
+  "weather_tags": ["Sunny"|"Rainy"|"Cold"|"Warm"|"Windy"|"Snowy" — pick relevant ones]
+}`,
+          },
+        ],
+      }],
     }),
   });
-
   if (!response.ok) throw new Error("AI identification failed");
   const data = await response.json();
   const raw = (data.choices[0].message.content as string).replace(/```json|```/g, "").trim();
-  return JSON.parse(raw) as { name: string; category: string };
+  return JSON.parse(raw);
 }
 
 export function AddItemModal({ onClose, onAdded }: Props) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
+  const [name, setName]           = useState("");
+  const [category, setCategory]   = useState("");
+  const [color, setColor]         = useState("");
+  const [colorHex, setColorHex]   = useState("#888888");
+  const [occasionTags, setOccasionTags] = useState<string[]>([]);
+  const [weatherTags, setWeatherTags]   = useState<string[]>([]);
   const [compressedDataUrl, setCompressedDataUrl] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [preview, setPreview]     = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
   const [identifying, setIdentifying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [dragging, setDragging]   = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function toggleTag<T extends string>(list: T[], val: T, setter: (v: T[]) => void) {
+    setter(list.includes(val) ? list.filter((t) => t !== val) : [...list, val]);
+  }
 
   async function handleFile(f: File) {
     setError(null);
-    // Show raw preview immediately
     setPreview(URL.createObjectURL(f));
     setIdentifying(true);
-
     try {
-      // Compress image for storage + pass to AI
       const dataUrl = await compressImage(f);
       setCompressedDataUrl(dataUrl);
-
-      // AI identification
       const result = await identifyClothing(dataUrl);
       setName(result.name);
       const validCats = CATEGORIES.map((c) => c.value);
       if (validCats.includes(result.category)) setCategory(result.category);
+      if (result.color)     setColor(result.color);
+      if (result.color_hex) setColorHex(result.color_hex);
+      if (result.occasion_tags?.length) setOccasionTags(result.occasion_tags);
+      if (result.weather_tags?.length)  setWeatherTags(result.weather_tags);
     } catch {
       // Allow user to fill in manually
     } finally {
@@ -134,29 +146,29 @@ export function AddItemModal({ onClose, onAdded }: Props) {
       setError("Photo, name, and category are all required.");
       return;
     }
-
     setSaving(true);
     setError(null);
-
     try {
-      // Store the compressed image data-URL directly in the DB (no storage bucket needed)
       const { data, error: insertError } = await supabase
         .from("wardrobe")
         .insert({
           name: name.trim(),
           category,
           image_url: compressedDataUrl,
+          color: color || null,
+          color_hex: color ? colorHex : null,
+          occasion_tags: occasionTags.length ? occasionTags : null,
+          weather_tags: weatherTags.length ? weatherTags : null,
         })
         .select()
         .single();
 
       if (insertError) {
         if (insertError.message.includes("schema cache") || insertError.message.includes("does not exist") || insertError.code === "42P01") {
-          throw new Error("The wardrobe table hasn't been created yet. Go to Wardrobe → follow the setup instructions first.");
+          throw new Error("The wardrobe table hasn't been created yet.");
         }
         throw new Error(`Database error: ${insertError.message}`);
       }
-
       onAdded(data as WardrobeItem);
       onClose();
     } catch (e: unknown) {
@@ -167,11 +179,11 @@ export function AddItemModal({ onClose, onAdded }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="modal-panel w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="modal-panel w-full max-w-md my-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-serif text-white">Add to Wardrobe</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-white/50 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -184,6 +196,10 @@ export function AddItemModal({ onClose, onAdded }: Props) {
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           style={{ cursor: identifying ? "default" : "pointer" }}
+          role="button"
+          aria-label="Upload clothing photo"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileRef.current?.click(); }}
         >
           {preview ? (
             <div className="relative">
@@ -202,7 +218,7 @@ export function AddItemModal({ onClose, onAdded }: Props) {
                 <p className="text-sm font-medium text-white/60">Drop a photo or click to browse</p>
                 <p className="text-xs mt-1 flex items-center justify-center gap-1">
                   <Sparkles size={11} className="text-gold/70" />
-                  <span className="text-gold/70">AI auto-detects name &amp; category</span>
+                  <span className="text-gold/70">AI auto-detects name, colour &amp; tags</span>
                 </p>
               </div>
             </div>
@@ -222,32 +238,50 @@ export function AddItemModal({ onClose, onAdded }: Props) {
             Name *
             {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal text-xs">detecting...</span>}
           </label>
-          <input
-            className="form-input"
-            placeholder="e.g. Navy Linen Shirt"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={identifying}
-          />
+          <input className="form-input" placeholder="e.g. Navy Linen Shirt" value={name} onChange={(e) => setName(e.target.value)} disabled={identifying} />
         </div>
 
         {/* Category */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="form-label">
             Category *
             {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal text-xs">detecting...</span>}
           </label>
-          <select
-            className="form-input"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            disabled={identifying}
-          >
+          <select className="form-input" value={category} onChange={(e) => setCategory(e.target.value)} disabled={identifying}>
             <option value="">Select category...</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
+            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
+        </div>
+
+        {/* Colour */}
+        <div className="mb-4">
+          <label className="form-label">Colour {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal text-xs">detecting...</span>}</label>
+          <div className="flex gap-2">
+            <input className="form-input flex-1" placeholder="e.g. Navy Blue" value={color} onChange={(e) => setColor(e.target.value)} disabled={identifying} />
+            <input type="color" value={colorHex} onChange={(e) => setColorHex(e.target.value)} className="w-10 h-10 rounded cursor-pointer border border-white/10 bg-transparent" title="Pick colour" />
+          </div>
+        </div>
+
+        {/* Occasion Tags */}
+        <div className="mb-4">
+          <label className="form-label">Occasion Tags {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal text-xs">detecting...</span>}</label>
+          <div className="flex flex-wrap gap-2">
+            {OCCASION_OPTIONS.map((tag) => (
+              <button key={tag} type="button" onClick={() => toggleTag(occasionTags, tag, setOccasionTags)} disabled={identifying}
+                className={`tag-toggle ${occasionTags.includes(tag) ? "selected" : ""}`}>{tag}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Weather Tags */}
+        <div className="mb-5">
+          <label className="form-label">Weather Tags {identifying && <span className="ml-2 text-gold/60 normal-case tracking-normal font-normal text-xs">detecting...</span>}</label>
+          <div className="flex flex-wrap gap-2">
+            {WEATHER_OPTIONS.map((tag) => (
+              <button key={tag} type="button" onClick={() => toggleTag(weatherTags, tag, setWeatherTags)} disabled={identifying}
+                className={`tag-toggle ${weatherTags.includes(tag) ? "selected" : ""}`}>{tag}</button>
+            ))}
+          </div>
         </div>
 
         {error && (
@@ -259,11 +293,7 @@ export function AddItemModal({ onClose, onAdded }: Props) {
         <div className="flex gap-3">
           <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
           <button onClick={handleSave} disabled={saving || identifying} className="btn-primary flex-1">
-            {saving ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 size={16} className="animate-spin" /> Saving...
-              </span>
-            ) : "Save Item"}
+            {saving ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" /> Saving...</span> : "Save Item"}
           </button>
         </div>
       </div>

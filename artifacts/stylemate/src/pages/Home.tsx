@@ -1,24 +1,18 @@
-import { useState, useEffect } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { OccasionPicker } from "@/components/OccasionPicker";
-import { OutfitGrid } from "@/components/OutfitGrid";
-import { useWeather } from "@/components/WeatherWidget";
+import { OutfitCard } from "@/components/OutfitCard";
+import { useWeather } from "@/lib/weatherContext";
+import { useWardrobe } from "@/lib/wardrobeContext";
 import { getOutfitSuggestions, type Outfit } from "@/lib/openrouter";
-import { supabase, type WardrobeItem } from "@/lib/supabase";
 
 export function Home() {
   const { weather, loading: weatherLoading } = useWeather();
-  const [occasion, setOccasion] = useState<string | null>(null);
-  const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([]);
-  const [outfits, setOutfits] = useState<Outfit[]>([]);
+  const { items: wardrobe } = useWardrobe();
+  const [occasion, setOccasion]   = useState<string | null>(null);
+  const [outfits, setOutfits]     = useState<Outfit[]>([]);
   const [suggesting, setSuggesting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.from("wardrobe").select("*").then(({ data }) => {
-      setWardrobe((data as WardrobeItem[]) || []);
-    });
-  }, []);
+  const [error, setError]         = useState<string | null>(null);
 
   async function handleSuggest() {
     if (!occasion || !weather) return;
@@ -33,13 +27,12 @@ export function Home() {
     setOutfits([]);
 
     try {
-      const result = await getOutfitSuggestions(
-        occasion,
-        weather,
-        wardrobe,
-        "Medium Warm"
-      );
-      setOutfits(result.outfits);
+      const result = await getOutfitSuggestions(occasion, weather, wardrobe);
+      if (!result.outfits || result.outfits.length === 0) {
+        setError("No outfits could be generated. Try adding more variety to your wardrobe.");
+      } else {
+        setOutfits(result.outfits);
+      }
     } catch (e) {
       setError("Failed to get outfit suggestions. Please try again.");
       console.error(e);
@@ -56,10 +49,9 @@ export function Home() {
           <h2 className="text-sm font-bold uppercase tracking-widest text-gold/60 mb-4">
             What's the occasion?
           </h2>
-          <OccasionPicker selected={occasion} onSelect={setOccasion} />
+          <OccasionPicker selected={occasion} onSelect={(o) => { setOccasion(o); setOutfits([]); setError(null); }} />
         </section>
 
-        {/* Divider */}
         <div className="border-t border-white/10 mb-8" />
 
         {/* Suggest Button */}
@@ -82,8 +74,11 @@ export function Home() {
             )}
           </button>
 
-          {!occasion && (
+          {!occasion && !suggesting && (
             <p className="text-white/30 text-sm">Select an occasion above to continue</p>
+          )}
+          {wardrobe.length > 0 && wardrobe.length < 3 && (
+            <p className="text-white/30 text-sm">You need at least 3 wardrobe items ({3 - wardrobe.length} more needed)</p>
           )}
         </div>
 
@@ -93,7 +88,35 @@ export function Home() {
           </div>
         )}
 
-        {outfits.length > 0 && <OutfitGrid outfits={outfits} />}
+        {/* Outfit Results */}
+        {outfits.length > 0 && (
+          <div className="mt-10">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-gold/60">Your Outfits</h3>
+              <button
+                onClick={handleSuggest}
+                disabled={suggesting}
+                className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+              >
+                <RefreshCw size={13} />
+                Regenerate
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {outfits.map((outfit, index) => (
+                <OutfitCard key={outfit.label} outfit={outfit} index={index} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state after attempt with no results */}
+        {!suggesting && outfits.length === 0 && occasion && !error && (
+          <div className="mt-16 text-center text-white/30">
+            <div className="text-4xl mb-3">✨</div>
+            <p className="text-sm">Hit the button above to get your outfit suggestions</p>
+          </div>
+        )}
       </div>
     </div>
   );

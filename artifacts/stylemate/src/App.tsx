@@ -3,41 +3,32 @@ import { Shirt, Wand2 } from "lucide-react";
 import { Home } from "@/pages/Home";
 import { WardrobePage } from "@/pages/Wardrobe";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { WeatherProvider } from "@/lib/weatherContext";
+import { WardrobeProvider } from "@/lib/wardrobeContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function Nav() {
   const [location] = useLocation();
-
   return (
     <header className="app-header">
       <div className="max-w-6xl mx-auto w-full grid grid-cols-3 items-center">
-        {/* Left: Weather */}
         <div className="flex items-center">
           <WeatherWidget />
         </div>
-
-        {/* Centre: Logo */}
         <div className="flex justify-center">
           <Link href="/" className="flex items-center gap-3">
-            <div className="logo-mark">SM</div>
+            <div className="logo-mark" aria-hidden="true">SM</div>
             <span className="text-xl font-serif text-white tracking-wide">StyleMate</span>
           </Link>
         </div>
-
-        {/* Right: Nav */}
         <div className="flex justify-end">
-          <nav className="flex items-center gap-1">
-            <Link
-              href="/"
-              className={`nav-link ${location === "/" ? "active" : ""}`}
-            >
-              <Wand2 size={16} />
+          <nav className="flex items-center gap-1" aria-label="Main navigation">
+            <Link href="/" className={`nav-link ${location === "/" ? "active" : ""}`} aria-current={location === "/" ? "page" : undefined}>
+              <Wand2 size={16} aria-hidden="true" />
               <span className="hidden sm:inline">Outfits</span>
             </Link>
-            <Link
-              href="/wardrobe"
-              className={`nav-link ${location === "/wardrobe" ? "active" : ""}`}
-            >
-              <Shirt size={16} />
+            <Link href="/wardrobe" className={`nav-link ${location === "/wardrobe" ? "active" : ""}`} aria-current={location === "/wardrobe" ? "page" : undefined}>
+              <Shirt size={16} aria-hidden="true" />
               <span className="hidden sm:inline">Wardrobe</span>
             </Link>
           </nav>
@@ -58,10 +49,16 @@ function Router() {
 
 function App() {
   return (
-    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-      <Nav />
-      <Router />
-    </WouterRouter>
+    <ErrorBoundary>
+      <WeatherProvider>
+        <WardrobeProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Nav />
+            <Router />
+          </WouterRouter>
+        </WardrobeProvider>
+      </WeatherProvider>
+    </ErrorBoundary>
   );
 }
 

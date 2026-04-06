@@ -20,8 +20,9 @@ STRICT OUTFIT RULES:
 4. Consider colour harmony — avoid clashing colours; prioritise tonal, complementary, or classic neutral combinations.
 5. Each of the 3 outfits must have a distinctly different vibe (e.g. relaxed, smart, bold — not three similar looks).
 6. Only use items that exist in the wardrobe data. Never invent items.
+7. Use the occasion_tags and weather_tags on each item to make smarter picks when available.
 
-COLOUR HARMONY GUIDE (use this when picking combinations):
+COLOUR HARMONY GUIDE:
 - Navy pairs with: white, grey, beige, camel, burgundy
 - Black pairs with: white, grey, red, any bright accent
 - White pairs with: anything — safest top
@@ -37,25 +38,15 @@ ALWAYS respond in this exact JSON format (no extra text, just raw JSON):
     {
       "label": "Option A",
       "vibe": "Short punchy vibe label (2-3 words)",
-      "description": "One confident sentence explaining why this combination works for today's occasion and weather. Mention the specific colours and why they work together.",
+      "description": "One confident sentence explaining why this combination works for today's occasion and weather.",
       "items": [
-        { "id": "uuid", "name": "item name", "category": "shirt", "image_url": "https://..." },
-        { "id": "uuid", "name": "item name", "category": "pants", "image_url": "https://..." },
-        { "id": "uuid", "name": "item name", "category": "shoes", "image_url": "https://..." }
+        { "id": "uuid", "name": "item name", "category": "shirt", "image_url": "" },
+        { "id": "uuid", "name": "item name", "category": "pants", "image_url": "" },
+        { "id": "uuid", "name": "item name", "category": "shoes", "image_url": "" }
       ]
     },
-    {
-      "label": "Option B",
-      "vibe": "...",
-      "description": "...",
-      "items": [...]
-    },
-    {
-      "label": "Option C",
-      "vibe": "...",
-      "description": "...",
-      "items": [...]
-    }
+    { "label": "Option B", "vibe": "...", "description": "...", "items": [] },
+    { "label": "Option C", "vibe": "...", "description": "...", "items": [] }
   ]
 }`;
 
@@ -80,10 +71,8 @@ export type OutfitSuggestions = {
 export async function getOutfitSuggestions(
   occasion: string,
   weather: WeatherData,
-  wardrobe: WardrobeItem[],
-  skinTone: string
+  wardrobe: WardrobeItem[]
 ): Promise<OutfitSuggestions> {
-  // Build a lightweight wardrobe list for the AI — no base64 images
   const wardrobeForAI = wardrobe.map((item) => ({
     id: item.id,
     name: item.name,
@@ -91,20 +80,19 @@ export async function getOutfitSuggestions(
     color: item.color ?? null,
     occasion_tags: item.occasion_tags ?? [],
     weather_tags: item.weather_tags ?? [],
+    notes: item.notes ?? null,
   }));
 
-  // Keep a quick lookup so we can hydrate image_url after the AI responds
   const imageById = Object.fromEntries(wardrobe.map((i) => [i.id, i.image_url]));
 
   const userMessage = `
 Occasion: ${occasion}
-Weather: ${weather.label}, ${weather.temp}°C in Dublin today
-User skin tone: ${skinTone}
+Weather: ${weather.label}, ${weather.temp}°C in ${weather.city} today
 
 Available wardrobe items (use ONLY these):
 ${JSON.stringify(wardrobeForAI, null, 2)}
 
-Please suggest 3 distinctly different outfit combinations that look great together.
+Please suggest 3 distinctly different outfit combinations.
   `;
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -127,7 +115,6 @@ Please suggest 3 distinctly different outfit combinations that look great togeth
 
   if (!response.ok) {
     const err = await response.text();
-    console.error("OpenRouter response:", response.status, err);
     throw new Error(`OpenRouter error ${response.status}: ${err}`);
   }
 
@@ -136,10 +123,9 @@ Please suggest 3 distinctly different outfit combinations that look great togeth
   const clean = raw.replace(/```json|```/g, "").trim();
   const result = JSON.parse(clean) as OutfitSuggestions;
 
-  // Hydrate image_url from the local wardrobe lookup (AI payload had no images)
   for (const outfit of result.outfits) {
     for (const item of outfit.items) {
-      item.image_url = imageById[item.id] ?? item.image_url ?? "";
+      item.image_url = imageById[item.id] ?? "";
     }
   }
 

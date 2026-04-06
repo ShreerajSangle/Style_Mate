@@ -23,13 +23,15 @@ export function OutfitCard({ outfit, index }: Props) {
         <h3 className="text-lg font-serif text-white leading-tight">{outfit.vibe}</h3>
       </div>
 
-      <div className="space-y-2 mb-4">
+      {/* Items in a responsive row grid */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
         {outfit.items.map((item) => (
           <div key={item.id} className="polaroid-card">
             <div className="aspect-square overflow-hidden rounded bg-charcoal-700">
               <img
                 src={item.image_url}
                 alt={item.name}
+                loading="lazy"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =

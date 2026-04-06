@@ -1,59 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
-import { supabase, type WardrobeItem } from "@/lib/supabase";
+import { useWardrobe } from "@/lib/wardrobeContext";
 import { ClothingCard } from "./ClothingCard";
 import { AddItemModal } from "./AddItemModal";
 import { DatabaseSetup } from "./DatabaseSetup";
+import { WardrobeSkeleton } from "./WardrobeSkeleton";
 
 const CATEGORIES = ["All", "shirt", "tshirt", "pants", "trousers", "jacket", "shoes", "shorts"];
 
 export function WardrobeGrid() {
-  const [items, setItems] = useState<WardrobeItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("All");
+  const { items, loading, needsSetup, reload, addItem, removeItem, updateItem } = useWardrobe();
+  const [filter, setFilter]       = useState("All");
   const [showModal, setShowModal] = useState(false);
-  const [needsSetup, setNeedsSetup] = useState(false);
-
-  useEffect(() => {
-    loadWardrobe();
-  }, []);
-
-  async function loadWardrobe() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("wardrobe")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      // Table doesn't exist yet
-      if (error.message.includes("schema cache") || error.message.includes("does not exist") || error.code === "42P01") {
-        setNeedsSetup(true);
-      }
-    } else {
-      setItems((data as WardrobeItem[]) || []);
-    }
-    setLoading(false);
-  }
-
-  function handleDelete(id: string) {
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  }
-
-  function handleAdded(item: WardrobeItem) {
-    setItems((prev) => [item, ...prev]);
-  }
-
-  function handleSetupDone() {
-    setNeedsSetup(false);
-    loadWardrobe();
-  }
 
   const filtered = filter === "All" ? items : items.filter((i) => i.category === filter);
 
   return (
     <div>
-      {needsSetup && <DatabaseSetup onDone={handleSetupDone} />}
+      {needsSetup && <DatabaseSetup onDone={reload} />}
 
       {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap mb-6">
@@ -69,18 +33,17 @@ export function WardrobeGrid() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-        </div>
+        <WardrobeSkeleton />
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-white/40">
-          <p className="text-lg">No items yet</p>
-          <p className="text-sm mt-1">Add your first clothing item to get started</p>
+        <div className="text-center py-20 text-white/40">
+          <div className="text-5xl mb-4">👗</div>
+          <p className="text-lg font-serif text-white/60">{filter === "All" ? "Your wardrobe is empty" : `No ${filter} items yet`}</p>
+          <p className="text-sm mt-2">{filter === "All" ? "Add your first clothing item to get started" : "Try a different filter or add a new item"}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {filtered.map((item) => (
-            <ClothingCard key={item.id} item={item} onDelete={handleDelete} />
+            <ClothingCard key={item.id} item={item} onDelete={removeItem} onUpdate={updateItem} />
           ))}
         </div>
       )}
@@ -88,6 +51,7 @@ export function WardrobeGrid() {
       {/* Add button */}
       <button
         onClick={() => setShowModal(true)}
+        aria-label="Add clothing item"
         className="fixed bottom-6 right-6 btn-primary flex items-center gap-2 shadow-xl shadow-black/40"
       >
         <Plus size={18} />
@@ -95,7 +59,7 @@ export function WardrobeGrid() {
       </button>
 
       {showModal && (
-        <AddItemModal onClose={() => setShowModal(false)} onAdded={handleAdded} />
+        <AddItemModal onClose={() => setShowModal(false)} onAdded={addItem} />
       )}
     </div>
   );
